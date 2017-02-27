@@ -14,27 +14,48 @@ class ProgrammerController extends BaseController
 {
     protected function addRoutes(ControllerCollection $controllers)
     {
-         $controllers->post('/api/programmers', array($this, 'newAction'));
-         $controllers->get('api/programmers/{nickname}', array($this, 'showAction'));
+        $controllers->post('/api/programmers', array($this, 'newAction'));
+        $controllers->get('/api/programmers', array($this, 'listAction'));
+        $controllers->get('api/programmers/{nickname}', array($this, 'showAction'))
+            ->bind('api_programmers_show');
+        $controllers->put('api/programmers/{nickname}', array($this, 'updateAction'));
     }
     
     public function newAction(Request $request)
-    {
-        $data = json_decode($request->getContent(), true);
-        
+    {       
         $programmer = new Programmer();
-        $programmer->nickname = $data['nickname'];
-        $programmer->avatarNumber = $data['avatarNumber'];
-        $programmer->tagLine = $data['tagLine'];
-        $programmer->userId = $this->findUserByUsername('weaverryan')->id;
         
-        $this->save($programmer);
+        $this->handleRequest($request, $programmer);
         
-        $response =  new Response('It worked! Trust me I\'m an API', 201);
-        $response->headers->set('Location', '/programmers/not/fake...');
+        $url = $this->generateUrl('api_programmers_show', array(
+            'nickname' => $programmer->nickname
+        ));
+        
+        $data = $this->serializeProgrammer($programmer);
+        
+        $response =  new JsonResponse($data, 201);
+        $response->headers->set( 'Location', $url );
         
         return $response;
     }
+    
+    public function updateAction(Request $request, $nickname)
+    {        
+        $programmer = $this->getProgrammerRepository()->findOneByNickname($nickname);
+        
+        if( !$programmer ){
+            $this->throw404('Oh no! This programmer has deserted! We\'ll send a search party');
+        }
+        
+        $this->handleRequest($request, $programmer);        
+       
+        $data = $this->serializeProgrammer($programmer);
+        
+        $response =  new JsonResponse($data, 200);
+        
+        return $response;
+    }
+    
     
     public function showAction($nickname)
     {
@@ -44,16 +65,55 @@ class ProgrammerController extends BaseController
             $this->throw404('Oh no! This programmer has deserted! We\'ll send a search party');
         }
         
-        $data = array(
+        $data = $this->serializeProgrammer($programmer);
+        
+        $response = new JsonResponse($data, 200);
+        
+        return $response;
+    }
+    
+    public function listAction()
+    {
+        $programmers = $this->getProgrammerRepository()->findAll();
+        
+        
+        $data = array('programmers' => array());
+        foreach($programmers as $programmer){
+            $data['programmers'][] = $this->serializeProgrammer($programmer);
+        }
+        
+        $response = new JsonResponse($data, 200);
+        
+        return $response;
+    }
+    
+    private function serializeProgrammer(Programmer $programmer)
+    {
+        return array(
             'nickname' => $programmer->nickname,
             'avatarNumber' => $programmer->avatarNumber,
             'powerLevel' => $programmer->powerLevel,
             'tagLine' => $programmer->tagLine
         );
+    }
+    
+    private function handleRequest(Request $request, Programmer $programmer)
+    {
+        $data = json_decode($request->getContent(), true);
         
-        $response = new Response(json_encode($data), 200);
-        $response->headers->set('Content-Type', 'application/json');
+        if($data === null){
+            throw new \Exception('Invalid JSON !!!!' . $request->getContent());
+        }
         
-        return $response;
+        $apiProperties = array('nickname', 'avatarNumber', 'tagLine');
+        
+        foreach($apiProperties as $property){
+            $val = isset($data[$property]) ? $data[$property] : null;
+            $programmer->$property = $val;
+        }
+        
+        $programmer->userId = $this->findUserByUsername('weaverryan')->id;
+        
+        $this->save($programmer);
     }
 }
