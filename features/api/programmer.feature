@@ -20,6 +20,28 @@ Feature: Programmer
         Then the response status code should be 201
         And the "Location" header should be "/api/programmers/ObjectOrienter"
         And the "nickname" property should equal "ObjectOrienter"
+
+    Scenario: Validation errors
+        Given I have the payload:
+        """
+            {
+                "avatarNumber": "2",
+                "tagLine": "I'm from a test!"
+            }
+        """
+
+        When I request "POST /api/programmers"
+        Then the response status code should be 400
+        And the following properties should exist: 
+        """
+        type
+        title
+        errors
+        """
+        And the "errors.nickname" property should exist
+        But the "errors.avatarNumber" property should not exist
+        And the "Content-Type" header should be "application/problem+json"
+
     
     Scenario: GET one programmer:
         Given the following programmers exist:
@@ -54,7 +76,7 @@ Feature: Programmer
         Given I have the payload:
         """
             {
-                "nickname": "CowboyCoder",
+                "nickname": "CowgirlCoder",
                 "avatarNumber": "2",
                 "tagLine": "foo"
             }
@@ -63,3 +85,27 @@ Feature: Programmer
         When I request "PUT /api/programmers/CowboyCoder"
         Then the response status code should be 200
         And the "avatarNumber" property should equal "2"
+        And the "nickname" property should equal "CowboyCoder"
+
+    Scenario: PATCH to edit a programmer
+        Given the following programmers exist:
+            | nickname    | avatarNumber | tagLine |
+            | CowboyCoder | 5            | foo     |
+        Given I have the payload:
+        """
+            {
+                "tagLine": "youpi!"
+            }
+        """
+
+        When I request "PATCH /api/programmers/CowboyCoder"
+        Then the response status code should be 200
+        And the "avatarNumber" property should equal "5"
+        And the "tagLine" property should equal "youpi!"
+
+    Scenario: DELETE a programmer
+        Given the following programmers exist:
+            | nickname   | avatarNumber |
+            | UnitTester | 3            |
+        When I request "DELETE /api/programmers/UnitTester"
+        Then the response status code should be 204

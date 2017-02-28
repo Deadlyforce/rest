@@ -19,6 +19,8 @@ class ProgrammerController extends BaseController
         $controllers->get('api/programmers/{nickname}', array($this, 'showAction'))
             ->bind('api_programmers_show');
         $controllers->put('api/programmers/{nickname}', array($this, 'updateAction'));
+        $controllers->match('api/programmers/{nickname}', array($this, 'updateAction'))->method('PATCH');
+        $controllers->delete('api/programmers/{nickname}', array($this, 'deleteAction'));
     }
     
     public function newAction(Request $request)
@@ -26,6 +28,13 @@ class ProgrammerController extends BaseController
         $programmer = new Programmer();
         
         $this->handleRequest($request, $programmer);
+        
+        $errors = $this->validate($programmer);
+        if(!empty($errors)){
+            return $this->handleValidationResponse($errors);
+        }
+        
+        $this->save($programmer);
         
         $url = $this->generateUrl('api_programmers_show', array(
             'nickname' => $programmer->nickname
@@ -47,8 +56,15 @@ class ProgrammerController extends BaseController
             $this->throw404('Oh no! This programmer has deserted! We\'ll send a search party');
         }
         
-        $this->handleRequest($request, $programmer);        
+        $this->handleRequest($request, $programmer);   
+        
+        $errors = $this->validate($programmer);
+        if(!empty($errors)){
+            return $this->handleValidationResponse($errors);
+        }
        
+        $this->save($programmer);
+        
         $data = $this->serializeProgrammer($programmer);
         
         $response =  new JsonResponse($data, 200);
@@ -70,6 +86,17 @@ class ProgrammerController extends BaseController
         $response = new JsonResponse($data, 200);
         
         return $response;
+    }
+    
+    public function deleteAction($nickname)
+    {
+        $programmer = $this->getProgrammerRepository()->findOneByNickname($nickname);
+        
+        if($programmer){
+            $this->delete($programmer);
+        }
+        
+        return new Response( null, 204 );
     }
     
     public function listAction()
@@ -105,15 +132,38 @@ class ProgrammerController extends BaseController
             throw new \Exception('Invalid JSON !!!!' . $request->getContent());
         }
         
-        $apiProperties = array('nickname', 'avatarNumber', 'tagLine');
+        $isNew = !$programmer->id;
+        
+        $apiProperties = array('avatarNumber', 'tagLine');
+        
+        if($isNew){
+            $apiProperties[] = 'nickname';
+        }
         
         foreach($apiProperties as $property){
+            // If PATCH and the field isn't set,clear just skip it!
+            if($request->isMethod('PATCH') && !isset($data[$property])){
+                continue;
+            }
+            
             $val = isset($data[$property]) ? $data[$property] : null;
             $programmer->$property = $val;
         }
         
-        $programmer->userId = $this->findUserByUsername('weaverryan')->id;
+        $programmer->userId = $this->findUserByUsername('weaverryan')->id;       
+    }
+    
+    private function handleValidationResponse(array $errors)
+    {
+        $data = array(
+            'type' => 'validation_error',
+            'title' => 'There was a validation error',
+            'errors' => $errors
+        );
+
+        $response = new JsonResponse( $data, 400 );        
+        $response->headers->set('COntent-Type', 'application/problem+json');
         
-        $this->save($programmer);
+        return $response;
     }
 }
