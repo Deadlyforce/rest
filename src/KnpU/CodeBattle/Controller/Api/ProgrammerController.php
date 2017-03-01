@@ -10,6 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use KnpU\CodeBattle\Model\Programmer;
 
+use KnpU\CodeBattle\Api\ApiProblem;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use KnpU\CodeBattle\Api\ApiProblemException;
+
 class ProgrammerController extends BaseController
 {
     protected function addRoutes(ControllerCollection $controllers)
@@ -31,7 +35,7 @@ class ProgrammerController extends BaseController
         
         $errors = $this->validate($programmer);
         if(!empty($errors)){
-            return $this->handleValidationResponse($errors);
+            $this->throwApiProblemValidationException($errors);
         }
         
         $this->save($programmer);
@@ -60,7 +64,7 @@ class ProgrammerController extends BaseController
         
         $errors = $this->validate($programmer);
         if(!empty($errors)){
-            return $this->handleValidationResponse($errors);
+            $this->throwApiProblemValidationException($errors);
         }
        
         $this->save($programmer);
@@ -129,7 +133,11 @@ class ProgrammerController extends BaseController
         $data = json_decode($request->getContent(), true);
         
         if($data === null){
-            throw new \Exception('Invalid JSON !!!!' . $request->getContent());
+//            throw new \Exception('Invalid JSON !!!!' . $request->getContent());
+            
+            $apiProblem = new ApiProblem(400, ApiProblem::TYPE_INVALID_REQUEST_BODY_FORMAT);
+            
+            throw new ApiProblemException( $apiProblem );
         }
         
         $isNew = !$programmer->id;
@@ -153,17 +161,14 @@ class ProgrammerController extends BaseController
         $programmer->userId = $this->findUserByUsername('weaverryan')->id;       
     }
     
-    private function handleValidationResponse(array $errors)
-    {
-        $data = array(
-            'type' => 'validation_error',
-            'title' => 'There was a validation error',
-            'errors' => $errors
+    private function throwApiProblemValidationException(array $errors)
+    {        
+        $apiProblem = new ApiProblem(
+            400,
+            ApiProblem::TYPE_VALIDATION_ERROR
         );
+        $apiProblem->set('errors', $errors);
 
-        $response = new JsonResponse( $data, 400 );        
-        $response->headers->set('COntent-Type', 'application/problem+json');
-        
-        return $response;
+        throw new ApiProblemException($apiProblem);
     }
 }

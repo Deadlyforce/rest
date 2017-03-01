@@ -21,6 +21,7 @@ Feature: Programmer
         And the "Location" header should be "/api/programmers/ObjectOrienter"
         And the "nickname" property should equal "ObjectOrienter"
 
+
     Scenario: Validation errors
         Given I have the payload:
         """
@@ -42,6 +43,21 @@ Feature: Programmer
         But the "errors.avatarNumber" property should not exist
         And the "Content-Type" header should be "application/problem+json"
 
+
+    Scenario: Invalid JSON
+        Given I have the payload:
+        """
+            {
+                "avatarNumber": "2
+                "tagLine": "I'm from a test!"
+            }
+        """
+
+        When I request "POST /api/programmers"
+        Then the response status code should be 400
+        And the "Content-Type" header should be "application/problem+json"
+        And the "type" property should equal "invalid_body_format"
+
     
     Scenario: GET one programmer:
         Given the following programmers exist:
@@ -58,6 +74,7 @@ Feature: Programmer
             """
         And the "nickname" property should equal "UnitTester"
 
+
     Scenario: GET a collection of programmers:
         Given the following programmers exist:
             | nickname    | avatarNumber |
@@ -68,6 +85,7 @@ Feature: Programmer
         Then the response status code should be 200
         And the "programmers" property should be an array
         And the "programmers" property should contain 2 items
+
 
     Scenario: PUT to edit a programmer
         Given the following programmers exist:
@@ -86,6 +104,7 @@ Feature: Programmer
         Then the response status code should be 200
         And the "avatarNumber" property should equal "2"
         And the "nickname" property should equal "CowboyCoder"
+
 
     Scenario: PATCH to edit a programmer
         Given the following programmers exist:
