@@ -32,7 +32,9 @@ use Symfony\Component\Validator\Mapping\ClassMetadataFactory;
 use Symfony\Component\Validator\Mapping\Loader\AnnotationLoader;
 
 use KnpU\CodeBattle\Api\ApiProblemException;
+use KnpU\CodeBattle\Api\ApiProblem;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class Application extends SilexApplication
 {
@@ -289,17 +291,42 @@ class Application extends SilexApplication
 
     private function configureListeners()
     {
-        $this->error(function(\Exception $e, $statusCode){
-            if(!$e instanceof ApiProblemException){
+        $app = $this;
+        
+        
+        $this->error(function(\Exception $e, $statusCode) use($app){
+            // Check the url starts with /api
+            if(strpos($app['request']->getPathInfo(), '/api') !== 0){
                 return;
+            }
+            
+            if($app['debug'] && $statusCode == 500){
+                return;
+            }
+            
+            if($e instanceof ApiProblemException){
+                $apiProblem = $e->getApiProblem(); 
+            } else {
+                $apiProblem = new ApiProblem($statusCode);
+                
+                // Get details about error but only if HttpException so as not to expose our database or other sensitive data
+                if($e instanceof HttpException){
+                    $apiProblem->set('detail', $e->getMessage());
+                }
             }            
 
+            $data = $apiProblem->toArray();
+
+            if($data['type'] != 'about:blank'){
+                $data['type'] = 'http://rest/docs/errors#'.$data['type'];
+            }
+            
             $response = new JsonResponse( 
-                $e->getApiProblem()->toArray(), 
-                $e->getApiProblem()->getStatusCode() 
+                $data, 
+                $apiProblem->getStatusCode() 
             );        
             $response->headers->set('Content-Type', 'application/problem+json');
-            
+
             return $response;
         });
     }

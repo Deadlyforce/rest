@@ -78,7 +78,7 @@ class ProgrammerController extends BaseController
     
     
     public function showAction($nickname)
-    {
+    {       
         $programmer = $this->getProgrammerRepository()->findOneByNickname($nickname);
         
         if( !$programmer ){

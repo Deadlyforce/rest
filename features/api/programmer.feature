@@ -56,7 +56,7 @@ Feature: Programmer
         When I request "POST /api/programmers"
         Then the response status code should be 400
         And the "Content-Type" header should be "application/problem+json"
-        And the "type" property should equal "invalid_body_format"
+        And the "type" property should contain "invalid_body_format"
 
     
     Scenario: GET one programmer:
@@ -73,6 +73,15 @@ Feature: Programmer
             tagLine
             """
         And the "nickname" property should equal "UnitTester"
+
+
+    Scenario: GET a non-existent programmer:
+        When I request "GET /api/programmers/BumbleBee"
+        Then the response status code should be 404
+        And the "Content-Type" header should be "application/problem+json"
+        And the "type" property should equal "about:blank"
+        And the "title" property should equal "Not Found"
+        And the "details" property should contain "programmer has deserted"
 
 
     Scenario: GET a collection of programmers:
